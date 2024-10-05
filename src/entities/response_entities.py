@@ -14,6 +14,6 @@ class CreatedTaskResponse(BaseModel):
 
 class TaskInfoResponse(BaseModel):
     status: str
-    create_time: str
-    start_time: datetime.datetime
-    time_to_execute: float
+    create_time: datetime.datetime
+    start_time: datetime.datetime | None = None
+    time_to_execute: float | None = None

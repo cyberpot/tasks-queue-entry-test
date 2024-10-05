@@ -1,25 +1,33 @@
 import asyncio
 import datetime
-import multiprocessing
 import functools
-from concurrent.futures import ProcessPoolExecutor
+import queue
+import importlib
+import traceback
+from multiprocessing.pool import Pool
 
-from models.config import get_db_session
+from models.config import context_db_session
 from settings.logging_config import produce_logger
 from time import perf_counter
 from managers.tasks_sql_manager import TasksSQLManager
 
-task_queue = multiprocessing.Queue()
-registered_tasks = {}
+task_queue = queue.Queue()
+registered_tasks = []
 
 _logger = produce_logger(__name__)
+
+
+def get_function_from_string(func_name):
+    module_name, func_name = func_name.rsplit('.', 1)
+    module = importlib.import_module(module_name)
+    return getattr(module, func_name)
 
 
 async def _update_state_shortcut(
     instance_id: str,
     data: dict[str, datetime.datetime | float | str]
 ):
-    async with get_db_session() as session:
+    async with context_db_session() as session:
         await TasksSQLManager(session).update(instance_id, data)
         await session.commit()
 
@@ -31,7 +39,7 @@ def task(func):
         loop.run_until_complete(_update_state_shortcut(
             instance_id=kwargs["_task_id"],
             data={
-                "start_time": datetime.datetime.now(datetime.UTC),
+                "start_time": datetime.datetime.now(),
             }
         ))
         start_exec = perf_counter()
@@ -43,35 +51,35 @@ def task(func):
             }
         ))
         return result
-    registered_tasks[func.__name__] = func
+    registered_tasks.append(func.__module__ + "." + func.__name__)
 
     async def delay(*args, **kwargs):
-        async with get_db_session() as session:
+        async with context_db_session() as session:
             instance = await TasksSQLManager(session).create(data=None)
             kwargs["_task_id"] = instance.id
-            task_queue.put_nowait((func.__name__, args, kwargs))
+            task_queue.put_nowait((
+                func.__module__ + "." + func.__name__, args, kwargs
+            ))
             await session.commit()
         return kwargs["_task_id"]
     wrapper.delay = delay
     return wrapper
 
 
-async def main(num_workers: int = 2):
-    with ProcessPoolExecutor(max_workers=num_workers, ) as executor:
-        while True:
-            _logger.info("Waiting for tasks...")
-            func_name, args, kwargs = task_queue.get()
-            task_id = kwargs["_task_id"]
-            _logger.info(f"Received task {task_id}")
-            if func_name in registered_tasks:
-                executor.submit(
-                    registered_tasks[func_name],
-                    *args,
-                    **kwargs
-                )
-            else:
-                _logger.error(f"No task found with name: {func_name}")
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
+def worker(pool: Pool):
+    while True:
+        _logger.info("Waiting for tasks...")
+        func_name, args, kwargs = task_queue.get()
+        if func_name == "__stop__":
+            _logger.info("Stopping...")
+            break
+        task_id = kwargs["_task_id"]
+        _logger.info(f"Received task {task_id}")
+        if func_name in registered_tasks:
+            pool.apply_async(
+                get_function_from_string(func_name),
+                args,
+                kwargs
+            )
+        else:
+            _logger.error(f"No task found with name: {func_name}")

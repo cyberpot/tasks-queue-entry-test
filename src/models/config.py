@@ -12,7 +12,7 @@ async_engine = create_async_engine(
     url=settings.DATABASE_URI,
     echo=False,
     pool_size=20,
-    max_overflow=0
+    max_overflow=0,
 )
 async_session_factory = async_sessionmaker(async_engine)
 
@@ -29,3 +29,5 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
         except SQLAlchemyError as ex:
             await session.rollback()
             raise ex
+
+context_db_session = contextlib.asynccontextmanager(get_db_session)
