@@ -15,3 +15,8 @@ Run containers
 ```bash
 docker-compose up
 ```
+
+Access to swagger
+```
+http://localhost:8100
+```
