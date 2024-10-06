@@ -15,5 +15,3 @@ Run containers
 ```bash
 docker-compose up
 ```
-
-The compose file includes the `tests` configuration
