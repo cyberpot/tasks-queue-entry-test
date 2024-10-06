@@ -16,7 +16,7 @@ services:
     ports:
       - "5442:5432"
 
-  web:
+  server:
     build:
       context: .
       dockerfile: Dockerfile
@@ -31,8 +31,6 @@ services:
       - .env
     depends_on:
       - postgres
-    volumes:
-      - .storage:/storage
     command: "/bin/bash -c /src/entrypoint.sh"
 
 

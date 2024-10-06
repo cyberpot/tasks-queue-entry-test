@@ -17,7 +17,7 @@ registered_tasks = []
 _logger = produce_logger(__name__)
 
 
-def get_function_from_string(func_name):
+def get_function_from_string(func_name: str):
     module_name, func_name = func_name.rsplit('.', 1)
     module = importlib.import_module(module_name)
     return getattr(module, func_name)
@@ -68,7 +68,6 @@ def task(func):
 
 def worker(pool: Pool):
     while True:
-        _logger.info("Waiting for tasks...")
         func_name, args, kwargs = task_queue.get()
         if func_name == "__stop__":
             _logger.info("Stopping...")
@@ -76,10 +75,15 @@ def worker(pool: Pool):
         task_id = kwargs["_task_id"]
         _logger.info(f"Received task {task_id}")
         if func_name in registered_tasks:
-            pool.apply_async(
-                get_function_from_string(func_name),
-                args,
-                kwargs
-            )
+            try:
+                pool.apply_async(
+                    get_function_from_string(func_name),
+                    args,
+                    kwargs
+                )
+            except Exception:
+                _logger.error(f"Can`t put task {kwargs['_task_id']} in the queue")
+                _logger.error(traceback.format_exc())
+                continue
         else:
             _logger.error(f"No task found with name: {func_name}")

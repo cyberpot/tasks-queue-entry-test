@@ -6,7 +6,9 @@ logging.basicConfig(level=logging.NOTSET)
 
 
 def produce_logger(name: str) -> logging.Logger:
-    return logging.getLogger(f"solution.{name}")
+    logger = logging.getLogger(f"solution.{name}")
+    logger.setLevel(logging.INFO)
+    return logger
 
 
 # Some additional logger logic ...

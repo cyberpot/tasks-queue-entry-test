@@ -12,4 +12,4 @@ _logger = produce_logger(__name__)
 def process(*args, **kwargs):
     _logger.info(f"Processing task {kwargs['_task_id']}")
     time.sleep(random.randint(0, 10))
-    _logger.info("Finished")
+    _logger.info(f"Task {kwargs['_task_id']} completed successfully")
