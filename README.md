@@ -18,5 +18,5 @@ docker-compose up
 
 Access to swagger
 ```
-http://localhost:8100
+http://localhost:8100/docs
 ```
